@@ -1,6 +1,6 @@
 const CACHE_NAME = 'canto-v1';
 const ASSETS = [
-  'game.html',
+  'index.html',
   'manifest.json',
   'icon.png'
 ];
