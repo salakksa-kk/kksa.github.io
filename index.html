@@ -14,17 +14,22 @@
     </script>
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; }
+        
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: var(--bg); 
             color: var(--text); 
             display: flex; 
             justify-content: center; 
-            align-items: center; 
+            /* Start from top to prevent keyboard overlap */
+            align-items: flex-start; 
             min-height: 100vh; 
             margin: 0;
+            padding-top: 5vh; 
             overflow-x: hidden;
+            box-sizing: border-box;
         }
+
         #game-container { 
             background: white; 
             padding: 2rem; 
@@ -33,51 +38,55 @@
             width: 90%;
             max-width: 500px; 
             text-align: center;
-            transition: transform 0.3s ease;
             margin: 10px;
         }
         
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .phrase-display { font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem; color: #0f172a; }
         
         input { 
             width: 100%; 
-            padding: 1rem; 
-            font-size: 1.2rem; 
+            padding: 1.2rem; 
+            font-size: 1.3rem; 
             border: 2px solid #e2e8f0; 
             border-radius: 0.75rem; 
             outline: none; 
             transition: all 0.2s; 
             box-sizing: border-box; 
             text-align: center;
-            -webkit-appearance: none; /* Fix for iOS styling */
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-            /* force interactivity fix */
-            pointer-events: auto !important;
-            -webkit-user-select: text !important;
-            user-select: text !important;
-            cursor: text !important;
-            /* Ensure the keyboard knows it's for text */
+            /* Prevents iOS zoom on focus */
             inputmode: text;
         }
-        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
-        /* Use Read-only styling instead of disabled */
-        input[readonly] { background: #f8fafc; color: #64748b; border-color: #cbd5e1; cursor: default; }
         
-        button { background: var(--primary); color: white; border: none; padding: 1rem 2rem; border-radius: 0.75rem; cursor: pointer; margin: 0.5rem; font-size: 1rem; font-weight: 600; min-width: 160px; }
-        button.secondary { background: #64748b; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        
+        button { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 1rem 2rem; 
+            border-radius: 0.75rem; 
+            cursor: pointer; 
+            margin: 1rem 0; 
+            font-size: 1.1rem; 
+            font-weight: 600; 
+            width: 100%; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        button#manual-next-btn { background: #0f172a; margin-top: 1.5rem; }
+        button.secondary { background: #64748b; margin-top: 0.5rem; }
 
         .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.85rem; }
         .summary-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; }
         .summary-table td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .row-wrong { background: #fef2f2; color: var(--error); }
         
-        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
+        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.3rem; font-weight: bold; }
         .tick { color: var(--success); }
         .cross { color: var(--error); }
-        .instruction { font-size: 0.8rem; color: #64748b; margin-top: 1rem; background: #f1f5f9; padding: 0.5rem; border-radius: 8px; display: inline-block; }
-        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        .instruction { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -85,30 +94,31 @@
 <div id="game-container">
     <div id="setup-screen">
         <h1>Cantonese Trainer</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping through repetition.</p>
-        <button onclick="initRound('new')">New Round</button><br>
+        <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping for work and daily life.</p>
+        <button onclick="initRound('new')">Start New Round</button>
         <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
     </div>
 
     <div id="play-screen" class="hidden">
         <div id="progress">PHRASE 1 / 10</div>
         <div class="phrase-display" id="target-phrase">---</div>
-        <input type="text" id="user-input" placeholder="Type Pinyin..." autocomplete="off" spellcheck="false">
+        <input type="text" id="user-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
         <div id="feedback-area" class="feedback"></div>
         <div id="hint-area" class="hidden"></div>
-        <div id="next-instruction" class="instruction hidden">⏎ Press <b>Enter</b> to continue</div>
+        <button id="manual-next-btn" class="hidden" onclick="proceed()">Continue ➔</button>
+        <div id="next-instruction" class="instruction hidden">Tap button or press Enter to continue</div>
     </div>
 
     <div id="summary-screen" class="hidden">
         <h2>Results</h2>
-        <div id="final-score" style="font-size: 2.5rem; font-weight: bold; color: var(--primary);">0%</div>
-        <div style="max-height: 250px; overflow-y: auto; margin: 1rem 0; border: 1px solid #e2e8f0;">
+        <div id="final-score" style="font-size: 3rem; font-weight: bold; color: var(--primary);">0%</div>
+        <div style="max-height: 300px; overflow-y: auto; margin: 1.5rem 0; border: 1px solid #e2e8f0; border-radius: 0.5rem;">
             <table class="summary-table">
                 <thead><tr><th>Phrase</th><th>Status</th><th>Pinyin</th></tr></thead>
                 <tbody id="summary-body"></tbody>
             </table>
         </div>
-        <button onclick="location.reload()">Home</button>
+        <button onclick="location.reload()">Back to Home</button>
     </div>
 </div>
 
@@ -362,7 +372,7 @@
         {"c": "膝頭", "p": "sat1 tau4"}, {"c": "腳板", "p": "goek3 baan2"}
     ];
 
-   let state = {
+  let state = {
         pool: [],
         roundHistory: [],
         currentIndex: 0,
@@ -372,46 +382,22 @@
     };
 
     const inputField = document.getElementById('user-input');
-    const gameContainer = document.getElementById('game-container');
+    const manualNextBtn = document.getElementById('manual-next-btn');
 
     window.onload = updateUI;
-    
-// Force focus when the user touches the input area
-    inputField.addEventListener('touchstart', function() {
-    if (!state.isWaitingForNext) {
-        inputField.focus();
-    }
-});
-// Update your nextQuestion function to be more aggressive
-function nextQuestion() {
-    if (state.currentIndex >= state.pool.length) {
-        showSummary();
-        return;
-    }
-    state.attempts = 0;
-    state.isWaitingForNext = false;
-    const current = state.pool[state.currentIndex];
-    
-    document.getElementById('target-phrase').innerText = current.c;
-    document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
-    document.getElementById('feedback-area').innerHTML = '';
-    document.getElementById('hint-area').classList.add('hidden');
-    document.getElementById('next-instruction').classList.add('hidden');
-    
-    inputField.value = '';
-    inputField.readOnly = false;
-    
-    // Attempt auto-focus, but the touchstart listener above 
-    // will act as the fail-safe on mobile.
-    inputField.focus();
-}
 
-    
-    // KEYBOARD FIX: Automatically scroll input into view on mobile focus
+    // Automatic scroll into view when input is focused
     inputField.addEventListener('focus', () => {
         setTimeout(() => {
-            inputField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            inputField.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 300);
+    });
+
+    // Block typing after two mistakes, but keep field active
+    inputField.addEventListener('keydown', (e) => {
+        if (state.isWaitingForNext && e.key !== 'Enter') {
+            e.preventDefault();
+        }
     });
 
     function updateUI() {
@@ -456,14 +442,15 @@ function nextQuestion() {
         state.attempts = 0;
         state.isWaitingForNext = false;
         const current = state.pool[state.currentIndex];
+        
         document.getElementById('target-phrase').innerText = current.c;
         document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
         document.getElementById('feedback-area').innerHTML = '';
         document.getElementById('hint-area').classList.add('hidden');
         document.getElementById('next-instruction').classList.add('hidden');
+        manualNextBtn.classList.add('hidden');
         
         inputField.value = '';
-        inputField.readOnly = false; // Keyboard stays active
         inputField.focus();
     }
 
@@ -474,37 +461,36 @@ function nextQuestion() {
         }
     });
 
-function checkAnswer() {
-    const current = state.pool[state.currentIndex];
-    const isMatch = normalize(inputField.value) === normalize(current.p);
-    const feedback = document.getElementById('feedback-area');
+    function checkAnswer() {
+        const current = state.pool[state.currentIndex];
+        const isMatch = normalize(inputField.value) === normalize(current.p);
+        const feedback = document.getElementById('feedback-area');
 
-    if (isMatch) {
-        feedback.innerHTML = '<span class="tick">✔ Correct</span>';
-        state.correctCount++;
-        state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
-        removeFromMistakes(current);
-        setTimeout(proceed, 800);
-    } else {
-        state.attempts++;
-        feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
-        
-        if (state.attempts >= 2) {
-            state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
-            saveToMistakes(current);
-            document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
-            document.getElementById('hint-area').classList.remove('hidden');
-            document.getElementById('next-instruction').classList.remove('hidden');
-            
-            // INSTEAD of readOnly, we just set a flag
-            state.isWaitingForNext = true; 
-            // We don't disable or set readOnly; we let the global 
-            // Enter key handler take over.
+        if (isMatch) {
+            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+            state.correctCount++;
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+            removeFromMistakes(current);
+            setTimeout(proceed, 800);
         } else {
-            inputField.select();
+            state.attempts++;
+            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
+            if (state.attempts >= 2) {
+                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+                saveToMistakes(current);
+                const hint = document.getElementById('hint-area');
+                hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
+                hint.classList.remove('hidden');
+                
+                // Show physical Enter button
+                document.getElementById('next-instruction').classList.remove('hidden');
+                manualNextBtn.classList.remove('hidden');
+                state.isWaitingForNext = true;
+            } else {
+                inputField.select();
+            }
         }
     }
-}
 
     function saveToMistakes(phrase) {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
@@ -540,7 +526,5 @@ function checkAnswer() {
         updateUI();
     }
 </script>
-</body>
-</html>
 </body>
 </html>
