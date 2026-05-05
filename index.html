@@ -53,6 +53,13 @@
             -webkit-appearance: none; /* Fix for iOS styling */
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
+            /* force interactivity fix */
+            pointer-events: auto !important;
+            -webkit-user-select: text !important;
+            user-select: text !important;
+            cursor: text !important;
+            /* Ensure the keyboard knows it's for text */
+            inputmode: text;
         }
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         /* Use Read-only styling instead of disabled */
@@ -367,14 +374,39 @@
     const inputField = document.getElementById('user-input');
     const gameContainer = document.getElementById('game-container');
 
-    inputField.addEventListener('keydown', (e) => {
-    // If the user failed twice, block all keys except Enter
-    if (state.isWaitingForNext && e.key !== 'Enter') {
-        e.preventDefault();
+    window.onload = updateUI;
+    
+// Force focus when the user touches the input area
+    inputField.addEventListener('touchstart', function() {
+    if (!state.isWaitingForNext) {
+        inputField.focus();
     }
 });
-    window.onload = updateUI;
+// Update your nextQuestion function to be more aggressive
+function nextQuestion() {
+    if (state.currentIndex >= state.pool.length) {
+        showSummary();
+        return;
+    }
+    state.attempts = 0;
+    state.isWaitingForNext = false;
+    const current = state.pool[state.currentIndex];
+    
+    document.getElementById('target-phrase').innerText = current.c;
+    document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
+    document.getElementById('feedback-area').innerHTML = '';
+    document.getElementById('hint-area').classList.add('hidden');
+    document.getElementById('next-instruction').classList.add('hidden');
+    
+    inputField.value = '';
+    inputField.readOnly = false;
+    
+    // Attempt auto-focus, but the touchstart listener above 
+    // will act as the fail-safe on mobile.
+    inputField.focus();
+}
 
+    
     // KEYBOARD FIX: Automatically scroll input into view on mobile focus
     inputField.addEventListener('focus', () => {
         setTimeout(() => {
