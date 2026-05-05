@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantonese Pinyin Trainer Ultra</title>
+    <style>
+        :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #game-container { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 550px; text-align: center; }
+        
+        /* Screens */
+        .hidden { display: none; }
+        .phrase-display { font-size: 3.5rem; font-weight: bold; margin-bottom: 0.5rem; color: #0f172a; }
+        
+        /* Inputs & Buttons */
+        input { width: 100%; padding: 1.2rem; font-size: 1.3rem; border: 2px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; box-sizing: border-box; text-align: center; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        input:disabled { background: #f1f5f9; cursor: not-allowed; }
+        
+        button { background: var(--primary); color: white; border: none; padding: 1rem 2rem; border-radius: 0.75rem; cursor: pointer; margin: 0.5rem; font-size: 1rem; font-weight: 600; min-width: 180px; }
+        button.secondary { background: #64748b; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* Summary Table */
+        .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.95rem; }
+        .summary-table th { background: #f1f5f9; padding: 0.75rem; text-align: left; }
+        .summary-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .row-wrong { background: #fef2f2; color: var(--error); }
+        .row-correct { color: var(--success); }
+
+        /* Feedback */
+        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.4rem; font-weight: bold; }
+        .tick { color: var(--success); }
+        .cross { color: var(--error); }
+        .instruction { font-size: 0.9rem; color: #64748b; margin-top: 1rem; background: #f1f5f9; padding: 0.5rem; border-radius: 8px; display: inline-block; }
+        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 1rem; letter-spacing: 1px; }
+    </style>
+<link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="setup-screen">
+        <h1 style="margin-bottom:0.5rem">Cantonese Trainer</h1>
+        <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping through repetition.</p>
+        <button onclick="initRound('new')">New Round (10 words)</button><br>
+        <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
+    </div>
+
+    <div id="play-screen" class="hidden">
+        <div id="progress">PHRASE 1 / 10</div>
+        <div class="phrase-display" id="target-phrase">---</div>
+        <input type="text" id="user-input" placeholder="Type Pinyin..." autocomplete="off">
+        <div id="feedback-area" class="feedback"></div>
+        <div id="hint-area" class="hidden"></div>
+        <div id="next-instruction" class="instruction hidden">⏎ Press <b>Enter</b> to continue</div>
+    </div>
+
+    <div id="summary-screen" class="hidden">
+        <h2 id="result-title">Round Complete!</h2>
+        <div id="final-score" style="font-size: 3rem; font-weight: bold; color: var(--primary);">0%</div>
+        <div style="max-height: 300px; overflow-y: auto; margin: 1.5rem 0; border: 1px solid #e2e8f0; border-radius: 0.5rem;">
+            <table class="summary-table">
+                <thead>
+                    <tr><th>Phrase</th><th>Result</th><th>Correct Pinyin</th></tr>
+                </thead>
+                <tbody id="summary-body"></tbody>
+            </table>
+        </div>
+        <button onclick="location.reload()">Back to Home</button>
+    </div>
+</div>
+
+<script>
+    const masterData = [
+        // Management & Business
+        { c: "管理層", p: "gun2 lei5 cang4" }, { c: "市場調查", p: "si5 coeng4 diu6 caa4" },
+        { c: "競爭力", p: "ging6 zang1 lik6" }, { c: "利潤率", p: "lei6 jeon6 leot6" },
+        { c: "執行長", p: "zap1 hang4 zoeng2" }, { c: "商業模式", p: "soeng1 jip6 mou4 sik1" },
+        { c: "資源分配", p: "zi1 jyun4 fan1 pui3" }, { c: "核心價值", p: "hat6 sam1 gaa3 zik6" },
+        // Logistics & Textiles
+        { c: "供應商", p: "gung1 jing3 soeng1" }, { c: "生產線", p: "sang1 caan2 sin3" },
+        { c: "原材料", p: "jyun4 coi4 liu2" }, { c: "品質控制", p: "ban2 zat1 hung3 zai3" },
+        { c: "人造絲", p: "jan4 zou6 si1" }, { c: "紡織業", p: "fong2 zik1 jip6" },
+        { c: "庫存管理", p: "fu3 cyun4 gun2 lei5" }, { c: "進出口", p: "zeon3 ceot1 hau2" },
+        // Technology
+        { c: "人工智能", p: "jan4 gung1 zi3 nang4" }, { c: "區塊鏈", p: "keoi1 faai3 lin2" },
+        { c: "雲端計算", p: "wan4 dyun1 gai3 syun3" }, { c: "互聯網", p: "wu6 lyun4 mong5" },
+        { c: "電子商務", p: "din6 zi2 soeng1 mou6" }, { c: "軟件開發", p: "jyun5 gin2 hoi1 faat3" },
+        // General Intermediate
+        { c: "負責任", p: "fu6 zaak3 jam6" }, { c: "影響力", p: "jing2 hoeng2 lik6" },
+        { c: "關鍵性", p: "gwaan1 gin6 sing3" }, { c: "穩定性", p: "wan2 ding6 sing3" },
+        { c: "積極性", p: "zik1 gik6 sing3" }, { c: "可能性", p: "ho2 nang4 sing3" },
+        { c: "多樣化", p: "do1 joeng6 faa3" }, { c: "現代化", p: "jin6 doi6 faa3" },
+        { c: "目的地", p: "muk6 dik6 dei6" }, { c: "吸引力", p: "kap1 jan5 lik6" },
+        { c: "交通工具", p: "gaau1 tung1 gung1 geoi6" }, { c: "生活方式", p: "sang1 wut6 fong1 sik1" },
+        { c: "心理壓力", p: "sam1 lei5 aat3 lik6" }, { c: "環境保護", p: "waan4 ging2 bou2 wu6" },
+        { c: "人際關係", p: "jan4 zai3 gwaan1 hai6" }, { c: "社會責任", p: "se5 wui2 zaak3 jam6" },
+        { c: "文化差異", p: "man4 faa3 caa1 ji6" }, { c: "投資回報", p: "tau4 zi1 wui4 bou3" },
+        { c: "個人成長", p: "go3 jan4 sing4 zoeng2" }, { c: "團隊合作", p: "tyun4 deoi6 hap6 zok3" },
+        {"c": "吹水", "p": "ceoi1 seoi2"}, {"c": "打邊爐", "p": "daa2 bin1 lou4"},
+        {"c": "埋單", "p": "maai4 daan1"}, {"c": "執笠", "p": "zap1 lap1"},
+        {"c": "攞景", "p": "lo2 ging2"}, {"c": "贈慶", "p": "zang6 hing3"},
+        {"c": "搞掂", "p": "gaau2 dim1"}, {"c": "濕滯", "p": "sap1 zai6"},
+        {"c": "離譜", "p": "lei4 pou2"}, {"c": "符碌", "p": "fu4 luk1"},
+        {"c": "走數", "p": "zau2 sou3"}, {"c": "撇脫", "p": "pit3 tyut3"},
+        {"c": "頻撲", "p": "pan4 pok3"}, {"c": "呢排", "p": "nei1 paai4"},
+        {"c": "頂癮", "p": "ding2 jan5"}, {"c": "晏晝", "p": "aan3 zau3"},
+        {"c": "宵夜", "p": "siu1 je6"}, {"c": "拍拖", "p": "paak3 to1"},
+        {"c": "散拖", "p": "saan2 to1"}, {"c": "出軌", "p": "ceot1 gwai2"},
+        {"c": "派帽", "p": "paai3 mou2"}, {"c": "梳化", "p": "so1 faa2"},
+        {"c": "雪櫃", "p": "syut3 gwai6"}, {"c": "冷氣", "p": "laang5 hei3"},
+        {"c": "吸塵", "p": "kap1 can4"}, {"c": "倒垃圾", "p": "dou2 laap6 saap3"},
+        {"c": "洗衫", "p": "sai2 saam1"}, {"c": "晾衫", "p": "long6 saam1"},
+        {"c": "換衫", "p": "wun6 saam1"}, {"c": "補鞋", "p": "bou2 haai4"},
+        {"c": "剪頭髮", "p": "zin2 tau4 faat3"}, {"c": "電髮", "p": "din6 faat3"},
+        {"c": "染髮", "p": "jim5 faat3"}, {"c": "洗面", "p": "sai2 min6"},
+        {"c": "刷牙", "p": "caat3 ngaa4"}, {"c": "沖涼", "p": "cung1 loeng4"},
+        {"c": "瞓覺", "p": "fan3 gaau3"}, {"c": "起身", "p": "hei2 san4"},
+        {"c": "做運動", "p": "zou2 wan6 dung6"}, {"c": "跑步", "p": "pau2 bou6"},
+        {"c": "游水", "p": "jau4 seoi2"}, {"c": "行山", "p": "hang4 saan1"},
+        {"c": "露營", "p": "lou6 jing4"}, {"c": "睇戲", "p": "tai2 hei3"},
+        {"c": "聽歌", "p": "ting1 go1"}, {"c": "彈琴", "p": "taan4 kam4"},
+        {"c": "打機", "p": "daa2 gei1"}, {"c": "上網", "p": "soeng5 mong5"},
+        {"c": "撳錢", "p": "gam6 cin2"}, {"c": "排隊", "p": "paai4 deoi6"},
+        {"c": "搭地鐵", "p": "daap3 dei6 tit3"}, {"c": "搭巴士", "p": "daap3 baa1 si2"},
+        {"c": "搭小巴", "p": "daap3 siu2 baa1"}, {"c": "搭的士", "p": "daap3 dik1 si2"},
+        {"c": "塞車", "p": "cak1 ce1"}, {"c": "落雨", "p": "lok6 jyu5"},
+        {"c": "曬太陽", "p": "saai3 taai3 joeng4"}, {"c": "刮風", "p": "gwaat3 fung1"},
+        {"c": "行雷", "p": "hang4 leoi4"}, {"c": "閃電", "p": "sim2 din6"},
+        {"c": "大霧", "p": "daai6 mou6"}, {"c": "潮濕", "p": "ciu4 sap1"},
+        {"c": "乾燥", "p": "gon1 cou3"}, {"c": "中暑", "p": "zung1 syu2"},
+        {"c": "傷風", "p": "soeng1 fung1"}, {"c": "發燒", "p": "faat3 siu1"},
+        {"c": "咳", "p": "kat1"}, {"c": "頭痛", "p": "tau4 tung3"},
+        {"c": "肚痛", "p": "tou5 tung3"}, {"c": "睇醫生", "p": "tai2 ji1 sang1"},
+        {"c": "食藥", "p": "sik6 joek3"}, {"c": "打針", "p": "daa2 zam1"},
+        {"c": "入院", "p": "jap6 jyun2"}, {"c": "出院", "p": "ceot1 jyun2"},
+        {"c": "買餸", "p": "maai5 sung3"}, {"c": "煮飯", "p": "zyu2 faan6"},
+        {"c": "洗碗", "p": "sai2 wun2"}, {"c": "抹地", "p": "maat3 dei6"},
+        {"c": "換燈膽", "p": "wun6 dang1 daam2"}, {"c": "整水喉", "p": "zing2 seoi2 hau4"},
+        {"c": "裝修", "p": "zong1 sau1"}, {"c": "搬屋", "p": "bun1 uk1"},
+        {"c": "睇樓", "p": "tai2 lau2"}, {"c": "租屋", "p": "zou1 uk1"},
+        {"c": "買樓", "p": "maai5 lau2"}, {"c": "供樓", "p": "gung1 lau2"},
+        {"c": "地產經紀", "p": "dei6 caan2 ging1 gei2"}, {"c": "銀行戶口", "p": "ngan4 hong4 wu6 hau2"},
+        {"c": "提款卡", "p": "tai4 fun2 kaa1"}, {"c": "信用卡", "p": "seon3 jung6 kaa1"},
+        {"c": "找數", "p": "zaau2 sou3"}, {"c": "利息", "p": "lei6 sik1"},
+        {"c": "手續費", "p": "sau2 zuk6 fai3"}, {"c": "保險費", "p": "bou2 him2 fai3"},
+        {"c": "學費", "p": "hok6 fai3"}, {"c": "雜費", "p": "zaap6 fai3"},
+        {"c": "水費", "p": "seoi2 fai3"}, {"c": "電費", "p": "din6 fai3"},
+        {"c": "煤氣費", "p": "mui4 hei3 fai3"}, {"c": "電話費", "p": "din6 waa2 fai3"},
+        {"c": "網費", "p": "mong5 fai3"}, {"c": "管理費", "p": "gun2 lei5 fai3"},
+        {"c": "泊車費", "p": "paak3 ce1 fai3"}, {"c": "隧道費", "p": "seoi6 dou6 fai3"},
+        {"c": "過海", "p": "gwo3 hoi2"}, {"c": "轉車", "p": "zyun2 ce1"},
+        {"c": "落車", "p": "lok6 ce1"}, {"c": "上車", "p": "soeng5 ce1"},
+        {"c": "遲到", "p": "ci4 dou3"}, {"c": "準時", "p": "zeon2 si4"},
+        {"c": "放飛機", "p": "fong3 fei1 gei1"}, {"c": "甩底", "p": "lat1 dai2"},
+        {"c": "係咁先", "p": "hai6 gam2 sin1"}, {"c": "再聯絡", "p": "zoi3 lyun4 lok3"},
+        {"c": "拜拜", "p": "baai1 baai3"}, {"c": "早唞", "p": "zou2 tau2"},
+        {"c": "多謝", "p": "do1 ze6"}, {"c": "唔該", "p": "m4 goi1"},
+        {"c": "對唔住", "p": "deoi3 m4 zy6"}, {"c": "唔緊要", "p": "m4 gan2 jiu3"},
+        {"c": "冇問題", "p": "mou5 man6 tai4"}, {"c": "你話事", "p": "nei5 waa6 si6"},
+        {"c": "隨便", "p": "ceoi4 bin2"}, {"c": "客氣", "p": "haak3 hei3"},
+        {"c": "尷尬", "p": "gaam1 gaai3"}, {"c": "得意", "p": "dak1 ji3"},
+        {"c": "搞笑", "p": "gaau2 siu3"}, {"c": "悶", "p": "mun6"},
+        {"c": "辛苦", "p": "san1 fu2"}, {"c": "開心", "p": "hoi1 sam1"},
+        {"c": "唔開心", "p": "m4 hoi1 sam1"}, {"c": "驚", "p": "ging1"},
+        {"c": "嬲", "p": "nau1"}, {"c": "愁", "p": "sau4"},
+        {"c": "煩", "p": "faan4"}, {"c": "攰", "p": "gui6"},
+        {"c": "肚餓", "p": "tou5 ngo6"}, {"c": "口渴", "p": "hau2 hot3"},
+        {"c": "飽", "p": "baau2"}, {"c": "醉", "p": "zeoi3"},
+        {"c": "醒", "p": "sing2"}, {"c": "凍", "p": "dung3"},
+        {"c": "熱", "p": "jit6"}, {"c": "暖", "p": "nyun5"},
+        {"c": "炒魷魚", "p": "caau2 jau4 jyu2"}, {"c": "蛇王", "p": "se4 wong4"},
+        {"c": "擦鞋", "p": "caat3 haai4"}, {"c": "抽水", "p": "cau1 seoi2"},
+        {"c": "卸膊", "p": "se3 bok3"}, {"c": "孭飛", "p": "me1 fei1"},
+        {"c": "燉冬菇", "p": "dan6 dung1 gu1"}, {"c": "波士", "p": "bo1 si2"},
+        {"c": "老細", "p": "lou5 sai3"}, {"c": "同事", "p": "tung4 si6"},
+        {"c": "人工", "p": "jan4 gung1"}, {"c": "加薪", "p": "gaa1 san1"},
+        {"c": "花紅", "p": "faa1 hung4"}, {"c": "跳槽", "p": "tiu3 cou4"},
+        {"c": "辭職", "p": "ci4 zik6"}, {"c": "退休", "p": "teoi1 jau1"},
+        {"c": "開會", "p": "hoi1 wui2"}, {"c": "趕工", "p": "gon2 gung1"},
+        {"c": "加班", "p": "gaa1 baan1"}, {"c": "放假", "p": "fong3 gaa3"},
+        {"c": "病假", "p": "bing6 gaa3"}, {"c": "事假", "p": "si6 gaa3"},
+        {"c": "出差", "p": "ceot1 caai1"}, {"c": "見工", "p": "gin3 gung1"},
+        {"c": "收工", "p": "sau1 gung1"}, {"c": "開工", "p": "hoi1 gung1"},
+        {"c": "準時收工", "p": "zeon2 si4 sau1 gung1"}, {"c": "大鑊", "p": "daai6 wok6"},
+        {"c": "仆街", "p": "puk1 gaai1"}, {"c": "頂唔順", "p": "ding2 m4 seon6"},
+        {"c": "收皮", "p": "sau1 pei4"}, {"c": "八卦", "p": "baat3 gwaa3"},
+        {"c": "毒男", "p": "duk6 naam4"}, {"c": "女神", "p": "neoi5 san4"},
+        {"c": "男神", "p": "naam4 san4"}, {"c": "港女", "p": "gong2 neoi5"},
+        {"c": "暖男", "p": "nyun5 naam4"}, {"c": "豬隊友", "p": "zyu1 deoi6 jau5"},
+        {"c": "神隊友", "p": "san4 deoi6 jau5"}, {"c": "潛水", "p": "cim4 seoi2"},
+        {"c": "放閃", "p": "fong3 sim2"}, {"c": "單身狗", "p": "daan1 san1 gau2"},
+        {"c": "佛系", "p": "fat6 hai6"}, {"c": "係咁先啦", "p": "hai6 gam2 sin1 laa1"},
+        {"c": "食花生", "p": "sik6 faa1 sang1"}, {"c": "帶風向", "p": "daai3 fung1 hoeng3"},
+        {"c": "骨膠原", "p": "gwat1 gaau1 jyun4"}, {"c": "逆齡", "p": "jik6 ling4"},
+        {"c": "凍齡", "p": "dung3 ling4"}, {"c": "美肌", "p": "mei5 gei1"},
+        {"c": "化妝", "p": "faa3 zong1"}, {"c": "落妝", "p": "lok6 zong1"},
+        {"c": "護膚", "p": "wu6 fu1"}, {"c": "敷面膜", "p": "fu1 min6 mok2"},
+        {"c": "減肥", "p": "gaam2 fei4"}, {"c": "健身", "p": "gin6 san1"},
+        {"c": "腹肌", "p": "fuk1 gei1"}, {"c": "馬甲線", "p": "maa5 gaap3 sin3"},
+        {"c": "人魚線", "p": "jan4 jyu4 sin3"}, {"c": "大隻佬", "p": "daai6 zek3 lou2"},
+        {"c": "排骨精", "p": "paai4 gwat1 zing1"}, {"c": "四眼仔", "p": "sei3 ngaan5 zai2"},
+        {"c": "長腿", "p": "coeng4 teoi2"}, {"c": "高富帥", "p": "gou1 fu3 seoi3"},
+        {"c": "白富美", "p": "baak6 fu3 mei5"}, {"c": "宅男", "p": "zaak6 naam4"},
+        {"c": "中二病", "p": "zung1 ji6 beng6"}, {"c": "玻璃心", "p": "bo1 lei1 sam1"},
+        {"c": "豬頭炳", "p": "zyu1 tau4 bing2"}, {"c": "衰鬼", "p": "seoi1 gwai2"},
+        {"c": "衰人", "p": "seoi1 jan4"}, {"c": "好人", "p": "hou2 jan4"},
+        {"c": "衰格", "p": "seoi1 gaak3"}, {"c": "招積", "p": "ziu1 zik1"},
+        {"c": "串", "p": "cyun3"}, {"c": "寸", "p": "cyun3"},
+        {"c": "囂張", "p": "hiu1 zoeng1"}, {"c": "認真", "p": "jing6 zan1"},
+        {"c": "馬虎", "p": "maa5 fu1"}, {"c": "求其", "p": "kau4 kei4"},
+        {"c": "求財", "p": "kau4 coi4"}, {"c": "求名", "p": "kau4 ming4"},
+        {"c": "有心", "p": "jau5 sam1"}, {"c": "冇心", "p": "mou5 sam1"},
+        {"c": "多心", "p": "do1 sam1"}, {"c": "細心", "p": "sai3 sam1"},
+        {"c": "粗心", "p": "cou1 sam1"}, {"c": "貪心", "p": "taam1 sam1"},
+        {"c": "放心", "p": "fong3 sam1"}, {"c": "擔心", "p": "daam1 sam1"},
+        {"c": "小心", "p": "siu2 sam1"}, {"c": "狠心", "p": "han2 sam1"},
+        {"c": "死心", "p": "sei2 sam1"}, {"c": "野心", "p": "je5 sam1"},
+        {"c": "核心", "p": "hat6 sam1"}, {"c": "中心", "p": "zung1 sam1"},
+        {"c": "真心", "p": "zan1 sam1"}, {"c": "假心", "p": "gaa2 sam1"},
+        {"c": "花心", "p": "faa1 sam1"}, {"c": "心地", "p": "sam1 dei6"},
+        {"c": "心理", "p": "sam1 lei5"}, {"c": "心情", "p": "sam1 cing4"},
+        {"c": "心跳", "p": "sam1 tiu3"}, {"c": "心急", "p": "sam1 gap1"},
+        {"c": "心軟", "p": "sam1 jyun5"}, {"c": "心硬", "p": "sam1 ngaang6"},
+        {"c": "心淡", "p": "sam1 daam6"}, {"c": "心碎", "p": "sam1 seoi3"},
+        {"c": "心寒", "p": "sam1 hon4"}, {"c": "心虛", "p": "sam1 heoi1"},
+        {"c": "心血", "p": "sam1 hyut3"}, {"c": "心領", "p": "sam1 ling5"},
+        {"c": "心聲", "p": "sam1 sing1"}, {"c": "心願", "p": "sam1 jyun6"},
+        {"c": "多謝晒", "p": "do1 ze6 saai3"}, {"c": "唔該晒", "p": "m4 goi1 saai3"},
+        {"c": "衰多手", "p": "seoi1 do1 sau2"}, {"c": "衰多口", "p": "seoi1 do1 hau2"},
+        {"c": "唔嗲唔吊", "p": "m4 de2 m4 diu3"}, {"c": "三五成群", "p": "saam1 ng5 sing4 kwan4"},
+        {"c": "亂七八糟", "p": "lyun6 cat1 baat3 zou1"}, {"c": "九唔搭八", "p": "gau2 m4 daap3 baat3"},
+        {"c": "一五一十", "p": "jat1 ng5 jat1 sap1"}, {"c": "七上八落", "p": "cat1 soeng5 baat3 lok6"},
+        {"c": "十下十下", "p": "sap6 haa6 sap6 haa6"}, {"c": "生生猛猛", "p": "sang1 sang1 maang5 maang5"},
+        {"c": "神神秘秘", "p": "san4 san4 bei3 bei3"}, {"c": "鬼鬼祟祟", "p": "gwai2 gwai2 seoi6 seoi6"},
+        {"c": "乾乾淨淨", "p": "gon1 gon1 zing6 zing6"}, {"c": "齊齊整整", "p": "cai4 cai4 zing2 zing2"},
+        {"c": "快快趣趣", "p": "faai3 faai3 ceoi3 ceoi3"}, {"c": "慢慢嚟", "p": "maan6 maan6 lei4"},
+        {"c": "慢慢食", "p": "maan6 maan6 sik6"}, {"c": "慢慢睇", "p": "maan6 maan6 tai2"},
+        {"c": "食自己", "p": "sik6 zi6 gei2"}, {"c": "靠自己", "p": "kaau3 zi6 gei2"},
+        {"c": "話咁快", "p": "waa6 gam2 faai3"}, {"c": "話唔埋", "p": "waa6 m4 maai4"},
+        {"c": "話之你", "p": "waa6 zi1 nei5"}, {"c": "話時話", "p": "waa6 si4 waa6"},
+        {"c": "點算好", "p": "dim2 syun3 hou2"}, {"c": "點解呀", "p": "dim2 gaai2 aa3"},
+        {"c": "點樣做", "p": "dim2 joeng6 zou6"}, {"c": "點玩法", "p": "dim2 waan2 faat3"},
+        {"c": "忟憎", "p": "mang2 zang2"}, {"c": "閉翳", "p": "bai3 ai3"},
+        {"c": "沙塵", "p": "saa1 can4"}, {"c": "囂張", "p": "hiu1 zoeng1"},
+        {"c": "囉唆", "p": "lo1 so1"}, {"c": "囉嗦", "p": "lo1 so1"},
+        {"c": "論盡", "p": "leon6 zeon6"}, {"c": "踢爆", "p": "tek3 baau3"},
+        {"c": "揭穿", "p": "kit3 cyun1"}, {"c": "發脾氣", "p": "faat3 pei4 hei3"},
+        {"c": "發夢", "p": "faat3 mung6"}, {"c": "發呆", "p": "faat3 ngoi4"},
+        {"c": "發達", "p": "faat3 daat6"}, {"c": "發財", "p": "faat3 coi4"},
+        {"c": "發炎", "p": "faat3 jim4"}, {"c": "發光", "p": "faat3 gwong1"},
+        {"c": "發熱", "p": "faat3 jit6"}, {"c": "發出", "p": "faat3 ceot1"},
+        {"c": "發生", "p": "faat3 sang1"}, {"c": "發展", "p": "faat3 zin2"},
+        {"c": "發明", "p": "faat3 ming4"}, {"c": "發言", "p": "faat3 jin4"},
+        {"c": "發揮", "p": "faat3 fai1"}, {"c": "發佈", "p": "faat3 bou3"},
+        {"c": "發行", "p": "faat3 hang4"}, {"c": "發動", "p": "faat3 dung6"},
+        {"c": "收場", "p": "sau1 coeng4"}, {"c": "場地", "p": "coeng4 dei6"},
+        {"c": "場合", "p": "coeng4 hap6"}, {"c": "場景", "p": "coeng4 jing2"},
+        {"c": "場次", "p": "coeng4 ci3"}, {"c": "局面", "p": "guk6 min6"},
+        {"c": "局勢", "p": "guk6 sai3"}, {"c": "格局", "p": "gaak3 guk6"},
+        {"c": "佈局", "p": "bou3 guk6"}, {"c": "騙局", "p": "pin3 guk6"},
+        {"c": "困局", "p": "kwan3 guk6"}, {"c": "僵局", "p": "goeng1 guk6"},
+        {"c": "打破", "p": "daa2 po3"}, {"c": "破壞", "p": "po3 waai6"},
+        {"c": "破裂", "p": "po3 lit6"}, {"c": "破紀錄", "p": "po3 gei2 luk6"},
+        {"c": "破例", "p": "po3 lai6"}, {"c": "破產", "p": "po3 caan2"},
+        {"c": "建立", "p": "gin3 laap6"}, {"c": "建築", "p": "gin3 zuk6"},
+        {"c": "建議", "p": "gin3 ji5"}, {"c": "建設", "p": "gin3 cit3"},
+        {"c": "健全", "p": "gin6 cyun4"}, {"c": "強健", "p": "koeng4 gin6"},
+        {"c": "康健", "p": "hong1 gin6"}, {"c": "穩健", "p": "wan2 gin6"},
+        {"c": "保健", "p": "bou2 gin6"}, {"c": "復健", "p": "fuk6 gin6"},
+        {"c": "健康", "p": "gin6 hong1"}, {"c": "康復", "p": "hong1 fuk6"},
+        {"c": "康莊", "p": "hong1 zong1"}, {"c": "安康", "p": "on1 hong1"},
+        {"c": "小康", "p": "siu2 hong1"}, {"c": "寧靜", "p": "ning4 zing6"},
+        {"c": "冷靜", "p": "laang5 zing6"}, {"c": "平靜", "p": "ping4 zing6"},
+        {"c": "寂靜", "p": "zik6 zing6"}, {"c": "動靜", "p": "dung6 zing6"},
+        {"c": "出聲", "p": "ceot1 sing1"}, {"c": "大聲", "p": "daai6 sing1"},
+        {"c": "細聲", "p": "sai3 sing1"}, {"c": "笑聲", "p": "siu3 sing1"},
+        {"c": "喊聲", "p": "haam3 sing1"}, {"c": "歌聲", "p": "go1 sing1"},
+        {"c": "鈴聲", "p": "ling4 sing1"}, {"c": "槍聲", "p": "coeng1 sing1"},
+        {"c": "雨聲", "p": "jyu5 sing1"}, {"c": "風聲", "p": "fung1 sing1"},
+        {"c": "名聲", "p": "ming4 sing1"}, {"c": "聲譽", "p": "sing1 jyu6"},
+        {"c": "聲明", "p": "sing1 ming4"}, {"c": "聲稱", "p": "sing1 cing1"},
+        {"c": "聲討", "p": "sing1 tou2"}, {"c": "聲援", "p": "sing1 jyun4"},
+        {"c": "聲帶", "p": "sing1 daai3"}, {"c": "回聲", "p": "wui4 sing1"},
+        {"c": "傳聲", "p": "cyun4 sing1"}, {"c": "眼神", "p": "ngaan5 san4"},
+        {"c": "眼界", "p": "ngaan5 gaai3"}, {"c": "眼光", "p": "ngaan5 gwong1"},
+        {"c": "眼紅", "p": "ngaan5 hung4"}, {"c": "眼淚", "p": "ngaan5 leoi6"},
+        {"c": "眼瞓", "p": "ngaan5 fan3"}, {"c": "眼尖", "p": "ngaan5 zim1"},
+        {"c": "眼睛", "p": "ngaan5 zing1"}, {"c": "眨眼", "p": "zaap3 ngaan5"},
+        {"c": "耀眼", "p": "jiu6 ngaan5"}, {"c": "礙眼", "p": "ngoi6 ngaan5"},
+        {"c": "搶眼", "p": "coeng2 ngaan5"}, {"c": "順眼", "p": "seon6 ngaan5"},
+        {"c": "合眼", "p": "hap6 ngaan5"}, {"c": "閉眼", "p": "bai3 ngaan5"},
+        {"c": "開眼", "p": "hoi1 ngaan5"}, {"c": "放眼", "p": "fong3 ngaan5"},
+        {"c": "低頭", "p": "dai1 tau4"}, {"c": "抬頭", "p": "toi4 tau4"},
+        {"c": "轉頭", "p": "zyun2 tau4"}, {"c": "回頭", "p": "wui4 tau4"},
+        {"c": "盡頭", "p": "zeon6 tau4"}, {"c": "開頭", "p": "hoi1 tau4"},
+        {"c": "頭獎", "p": "tau4 zoeng2"}, {"c": "頭飾", "p": "tau4 sik1"},
+        {"c": "頭銜", "p": "tau4 haam4"}, {"c": "頭殼", "p": "tau4 hok3"},
+        {"c": "頭暈", "p": "tau4 wan4"}, {"c": "頭皮", "p": "tau4 pei4"},
+        {"c": "頭髮", "p": "tau4 faat3"}, {"c": "心頭", "p": "sam1 tau4"},
+        {"c": "口頭", "p": "hau2 tau4"}, {"c": "念頭", "p": "nim6 tau4"},
+        {"c": "苗頭", "p": "miu4 tau4"}, {"c": "對頭", "p": "deoi3 tau4"},
+        {"c": "勢頭", "p": "sai3 tau4"}, {"c": "甜頭", "p": "tim4 tau4"},
+        {"c": "苦頭", "p": "fu2 tau4"}, {"c": "滑頭", "p": "waat6 tau4"},
+        {"c": "老頭", "p": "lou5 tau4"}, {"c": "丫頭", "p": "aa1 tau4"},
+        {"c": "死對頭", "p": "sei2 deoi3 tau4"}, {"c": "頭啖湯", "p": "tau4 daam6 tong1"},
+        {"c": "頭號", "p": "tau4 hou6"}, {"c": "頭部", "p": "tau4 bou6"},
+        {"c": "領頭", "p": "ling5 tau4"}, {"c": "碼頭", "p": "maa5 tau4"},
+        {"c": "路頭", "p": "lou6 tau4"}, {"c": "門頭", "p": "mun4 tau4"},
+        {"c": "橋頭", "p": "kiu4 tau4"}, {"c": "地頭", "p": "dei6 tau4"},
+        {"c": "地頭蟲", "p": "dei6 tau4 cung4"}, {"c": "地頭蛇", "p": "dei6 tau4 se4"},
+        {"c": "龍頭", "p": "lung4 tau4"}, {"c": "蛇頭", "p": "se4 tau4"},
+        {"c": "貓頭鷹", "p": "maau1 tau4 jing1"}, {"c": "木頭", "p": "muk6 tau4"},
+        {"c": "石頭", "p": "sek6 tau4"}, {"c": "骨頭", "p": "gwat1 tau4"},
+        {"c": "拳頭", "p": "kyun4 tau4"}, {"c": "指頭", "p": "zi2 tau4"},
+        {"c": "舌頭", "p": "sit3 tau4"}, {"c": "喉嚨", "p": "hau4 lung4"},
+        {"c": "頸渴", "p": "geng2 hot3"}, {"c": "膊頭", "p": "bok3 tau4"},
+        {"c": "腰骨", "p": "jiu1 gwat1"}, {"c": "手板", "p": "sau2 baan2"},
+        {"c": "手背", "p": "sau2 bui3"}, {"c": "手肘", "p": "sau2 zaang2"},
+        {"c": "膝頭", "p": "sat1 tau4"}, {"c": "腳板", "p": "goek3 baan2"}
+    ];
+
+    let state = {
+        pool: [],
+        roundHistory: [], // To store {phrase, status, correctPinyin}
+        currentIndex: 0,
+        attempts: 0,
+        correctCount: 0,
+        isWaitingForNext: false,
+        currentMode: 'new'
+    };
+
+    const inputField = document.getElementById('user-input');
+
+    window.onload = updateUI;
+
+    function updateUI() {
+        const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
+        const btn = document.getElementById('review-btn');
+        if (mistakes.length > 0) {
+            btn.innerText = `Review Mistakes (${mistakes.length})`;
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
+        }
+    }
+
+    function normalize(str) {
+        return str.toLowerCase().replace(/[0-9\s]/g, '');
+    }
+
+    function initRound(mode) {
+        state.currentMode = mode;
+        const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
+        
+        if (mode === 'review') {
+            state.pool = mistakes.sort(() => 0.5 - Math.random()).slice(0, 10);
+        } else {
+            state.pool = [...masterData].sort(() => 0.5 - Math.random()).slice(0, 10);
+        }
+
+        state.currentIndex = 0;
+        state.correctCount = 0;
+        state.roundHistory = [];
+        state.isWaitingForNext = false;
+        showScreen('play-screen');
+        nextQuestion();
+    }
+
+    function showScreen(id) {
+        ['setup-screen', 'play-screen', 'summary-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+        if (state.currentIndex >= state.pool.length) {
+            showSummary();
+            return;
+        }
+        state.attempts = 0;
+        state.isWaitingForNext = false;
+        const current = state.pool[state.currentIndex];
+        document.getElementById('target-phrase').innerText = current.c;
+        document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
+        document.getElementById('feedback-area').innerHTML = '';
+        document.getElementById('hint-area').classList.add('hidden');
+        document.getElementById('next-instruction').classList.add('hidden');
+        inputField.value = '';
+        inputField.disabled = false;
+        inputField.focus();
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            if (state.isWaitingForNext) proceed();
+            else if (document.activeElement === inputField && inputField.value.trim() !== "") checkAnswer();
+        }
+    });
+
+    function checkAnswer() {
+        const current = state.pool[state.currentIndex];
+        const isMatch = normalize(inputField.value) === normalize(current.p);
+        const feedback = document.getElementById('feedback-area');
+
+        if (isMatch) {
+            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+            state.correctCount++;
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+            removeFromMistakes(current);
+            setTimeout(proceed, 800);
+        } else {
+            state.attempts++;
+            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
+            if (state.attempts >= 2) {
+                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+                saveToMistakes(current);
+                document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
+                document.getElementById('hint-area').classList.remove('hidden');
+                document.getElementById('next-instruction').classList.remove('hidden');
+                inputField.disabled = true;
+                state.isWaitingForNext = true;
+            } else {
+                inputField.select();
+            }
+        }
+    }
+
+    function saveToMistakes(phrase) {
+        let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
+        if (!saved.some(item => item.c === phrase.c)) {
+            saved.push(phrase);
+            localStorage.setItem('cantonese_mistakes', JSON.stringify(saved));
+        }
+    }
+
+    function removeFromMistakes(phrase) {
+        let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
+        saved = saved.filter(item => item.c !== phrase.c);
+        localStorage.setItem('cantonese_mistakes', JSON.stringify(saved));
+    }
+
+    function proceed() {
+        state.currentIndex++;
+        nextQuestion();
+    }
+
+    function showSummary() {
+        showScreen('summary-screen');
+        const score = Math.round((state.correctCount / state.pool.length) * 100);
+        document.getElementById('final-score').innerText = `${score}%`;
+        
+        const tbody = document.getElementById('summary-body');
+        tbody.innerHTML = '';
+        state.roundHistory.forEach(item => {
+            const row = document.createElement('tr');
+            row.className = item.wrong ? 'row-wrong' : 'row-correct';
+            row.innerHTML = `
+                <td><b>${item.c}</b></td>
+                <td>${item.wrong ? '✘ Fail' : '✔ Pass'}</td>
+                <td>${item.p}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        updateUI();
+    }
+</script>
+</body>
+</html>
