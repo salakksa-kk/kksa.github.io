@@ -21,11 +21,12 @@
             color: var(--text); 
             display: flex; 
             justify-content: center; 
-            /* Start from top to prevent keyboard overlap */
+            /* Fix layout to the top of the page */
             align-items: flex-start; 
             min-height: 100vh; 
             margin: 0;
-            padding-top: 5vh; 
+            /* Space from the very top of the screen */
+            padding-top: 2rem; 
             overflow-x: hidden;
             box-sizing: border-box;
         }
@@ -54,8 +55,9 @@
             transition: all 0.2s; 
             box-sizing: border-box; 
             text-align: center;
-            /* Prevents iOS zoom on focus */
             inputmode: text;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
         
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
@@ -71,10 +73,8 @@
             font-size: 1.1rem; 
             font-weight: 600; 
             width: 100%; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        button#manual-next-btn { background: #0f172a; margin-top: 1.5rem; }
         button.secondary { background: #64748b; margin-top: 0.5rem; }
 
         .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.85rem; }
@@ -94,7 +94,7 @@
 <div id="game-container">
     <div id="setup-screen">
         <h1>Cantonese Trainer</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping for work and daily life.</p>
+        <p style="color: #64748b; margin-bottom: 2rem;">Practice Jyutping anywhere.</p>
         <button onclick="initRound('new')">Start New Round</button>
         <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
     </div>
@@ -105,8 +105,7 @@
         <input type="text" id="user-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
         <div id="feedback-area" class="feedback"></div>
         <div id="hint-area" class="hidden"></div>
-        <button id="manual-next-btn" class="hidden" onclick="proceed()">Continue ➔</button>
-        <div id="next-instruction" class="instruction hidden">Tap button or press Enter to continue</div>
+        <div id="next-instruction" class="instruction hidden">⏎ Press <b>Enter</b> to continue</div>
     </div>
 
     <div id="summary-screen" class="hidden">
@@ -382,18 +381,15 @@
     };
 
     const inputField = document.getElementById('user-input');
-    const manualNextBtn = document.getElementById('manual-next-btn');
 
-    window.onload = updateUI;
-
-    // Automatic scroll into view when input is focused
-    inputField.addEventListener('focus', () => {
-        setTimeout(() => {
-            inputField.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
+    // Force focus when the user touches the input area
+    inputField.addEventListener('touchstart', function() {
+        if (!state.isWaitingForNext) {
+            inputField.focus();
+        }
     });
 
-    // Block typing after two mistakes, but keep field active
+    // Option 3: Block typing after failure but keep keyboard up
     inputField.addEventListener('keydown', (e) => {
         if (state.isWaitingForNext && e.key !== 'Enter') {
             e.preventDefault();
@@ -448,7 +444,6 @@
         document.getElementById('feedback-area').innerHTML = '';
         document.getElementById('hint-area').classList.add('hidden');
         document.getElementById('next-instruction').classList.add('hidden');
-        manualNextBtn.classList.add('hidden');
         
         inputField.value = '';
         inputField.focus();
@@ -461,36 +456,41 @@
         }
     });
 
-    function checkAnswer() {
-        const current = state.pool[state.currentIndex];
-        const isMatch = normalize(inputField.value) === normalize(current.p);
-        const feedback = document.getElementById('feedback-area');
+function checkAnswer() {
+    const current = state.pool[state.currentIndex];
+    const isMatch = normalize(inputField.value) === normalize(current.p);
+    const feedback = document.getElementById('feedback-area');
 
-        if (isMatch) {
-            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
-            state.correctCount++;
-            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
-            removeFromMistakes(current);
-            setTimeout(proceed, 800);
+    if (isMatch) {
+        feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+        
+        // --- ADD AUDIO HERE ---
+        speak(current.c); 
+        
+        state.correctCount++;
+        state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+        removeFromMistakes(current);
+        setTimeout(proceed, 800);
+    } else {
+        state.attempts++;
+        feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
+        if (state.attempts >= 2) {
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+            saveToMistakes(current);
+            
+            // --- ADD AUDIO HERE ---
+            speak(current.c); 
+
+            const hint = document.getElementById('hint-area');
+            hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
+            hint.classList.remove('hidden');
+            document.getElementById('next-instruction').classList.remove('hidden');
+            state.isWaitingForNext = true;
         } else {
-            state.attempts++;
-            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
-            if (state.attempts >= 2) {
-                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
-                saveToMistakes(current);
-                const hint = document.getElementById('hint-area');
-                hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
-                hint.classList.remove('hidden');
-                
-                // Show physical Enter button
-                document.getElementById('next-instruction').classList.remove('hidden');
-                manualNextBtn.classList.remove('hidden');
-                state.isWaitingForNext = true;
-            } else {
-                inputField.select();
-            }
+            inputField.select();
         }
     }
+}
 
     function saveToMistakes(phrase) {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
@@ -525,6 +525,21 @@
         });
         updateUI();
     }
+
+    function speak(text) {
+    // Create a new speech request
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Set the language to Cantonese (Hong Kong)
+    utterance.lang = 'zh-HK';
+    
+    // Adjust pitch and rate to your preference
+    utterance.pitch = 1.0;
+    utterance.rate = 0.9; // Slightly slower for clearer learning
+    
+    // Execute the speech
+    window.speechSynthesis.speak(utterance);
+}
 </script>
 </body>
 </html>
