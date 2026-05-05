@@ -1,7 +1,7 @@
 {
   "name": "Cantonese Pinyin Trainer",
   "short_name": "CantoTrain",
-  "start_url": "index.html",
+  "start_url": "/kksa.github.io/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
