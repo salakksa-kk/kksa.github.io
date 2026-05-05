@@ -1,80 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <base href="/kksa.github.io/">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cantonese Pinyin Trainer Ultra</title>
+    <link rel="manifest" href="manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js');
+        });
+      }
+    </script>
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        #game-container { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 550px; text-align: center; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0;
+            overflow-x: hidden;
+        }
+        #game-container { 
+            background: white; 
+            padding: 2rem; 
+            border-radius: 1.5rem; 
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); 
+            width: 90%;
+            max-width: 500px; 
+            text-align: center;
+            transition: transform 0.3s ease;
+            margin: 10px;
+        }
         
-        /* Screens */
         .hidden { display: none; }
-        .phrase-display { font-size: 3.5rem; font-weight: bold; margin-bottom: 0.5rem; color: #0f172a; }
+        .phrase-display { font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem; color: #0f172a; }
         
-        /* Inputs & Buttons */
-        input { width: 100%; padding: 1.2rem; font-size: 1.3rem; border: 2px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; box-sizing: border-box; text-align: center; }
+        input { 
+            width: 100%; 
+            padding: 1rem; 
+            font-size: 1.2rem; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 0.75rem; 
+            outline: none; 
+            transition: all 0.2s; 
+            box-sizing: border-box; 
+            text-align: center;
+            -webkit-appearance: none; /* Fix for iOS styling */
+        }
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
-        input:disabled { background: #f1f5f9; cursor: not-allowed; }
+        /* Use Read-only styling instead of disabled */
+        input[readonly] { background: #f8fafc; color: #64748b; border-color: #cbd5e1; cursor: default; }
         
-        button { background: var(--primary); color: white; border: none; padding: 1rem 2rem; border-radius: 0.75rem; cursor: pointer; margin: 0.5rem; font-size: 1rem; font-weight: 600; min-width: 180px; }
+        button { background: var(--primary); color: white; border: none; padding: 1rem 2rem; border-radius: 0.75rem; cursor: pointer; margin: 0.5rem; font-size: 1rem; font-weight: 600; min-width: 160px; }
         button.secondary { background: #64748b; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        /* Summary Table */
-        .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.95rem; }
-        .summary-table th { background: #f1f5f9; padding: 0.75rem; text-align: left; }
-        .summary-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.85rem; }
+        .summary-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; }
+        .summary-table td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .row-wrong { background: #fef2f2; color: var(--error); }
-        .row-correct { color: var(--success); }
-
-        /* Feedback */
-        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.4rem; font-weight: bold; }
+        
+        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
         .tick { color: var(--success); }
         .cross { color: var(--error); }
-        .instruction { font-size: 0.9rem; color: #64748b; margin-top: 1rem; background: #f1f5f9; padding: 0.5rem; border-radius: 8px; display: inline-block; }
-        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 1rem; letter-spacing: 1px; }
+        .instruction { font-size: 0.8rem; color: #64748b; margin-top: 1rem; background: #f1f5f9; padding: 0.5rem; border-radius: 8px; display: inline-block; }
+        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.8rem; }
     </style>
-<link rel="manifest" href="manifest.json">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
 </head>
 <body>
 
 <div id="game-container">
     <div id="setup-screen">
-        <h1 style="margin-bottom:0.5rem">Cantonese Trainer</h1>
+        <h1>Cantonese Trainer</h1>
         <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping through repetition.</p>
-        <button onclick="initRound('new')">New Round (10 words)</button><br>
+        <button onclick="initRound('new')">New Round</button><br>
         <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
     </div>
 
     <div id="play-screen" class="hidden">
         <div id="progress">PHRASE 1 / 10</div>
         <div class="phrase-display" id="target-phrase">---</div>
-        <input type="text" id="user-input" placeholder="Type Pinyin..." autocomplete="off">
+        <input type="text" id="user-input" placeholder="Type Pinyin..." autocomplete="off" spellcheck="false">
         <div id="feedback-area" class="feedback"></div>
         <div id="hint-area" class="hidden"></div>
         <div id="next-instruction" class="instruction hidden">⏎ Press <b>Enter</b> to continue</div>
     </div>
 
     <div id="summary-screen" class="hidden">
-        <h2 id="result-title">Round Complete!</h2>
-        <div id="final-score" style="font-size: 3rem; font-weight: bold; color: var(--primary);">0%</div>
-        <div style="max-height: 300px; overflow-y: auto; margin: 1.5rem 0; border: 1px solid #e2e8f0; border-radius: 0.5rem;">
+        <h2>Results</h2>
+        <div id="final-score" style="font-size: 2.5rem; font-weight: bold; color: var(--primary);">0%</div>
+        <div style="max-height: 250px; overflow-y: auto; margin: 1rem 0; border: 1px solid #e2e8f0;">
             <table class="summary-table">
-                <thead>
-                    <tr><th>Phrase</th><th>Result</th><th>Correct Pinyin</th></tr>
-                </thead>
+                <thead><tr><th>Phrase</th><th>Status</th><th>Pinyin</th></tr></thead>
                 <tbody id="summary-body"></tbody>
             </table>
         </div>
-        <button onclick="location.reload()">Back to Home</button>
+        <button onclick="location.reload()">Home</button>
     </div>
 </div>
 
@@ -328,19 +353,26 @@
         {"c": "膝頭", "p": "sat1 tau4"}, {"c": "腳板", "p": "goek3 baan2"}
     ];
 
-    let state = {
+   let state = {
         pool: [],
-        roundHistory: [], // To store {phrase, status, correctPinyin}
+        roundHistory: [],
         currentIndex: 0,
         attempts: 0,
         correctCount: 0,
-        isWaitingForNext: false,
-        currentMode: 'new'
+        isWaitingForNext: false
     };
 
     const inputField = document.getElementById('user-input');
+    const gameContainer = document.getElementById('game-container');
 
     window.onload = updateUI;
+
+    // KEYBOARD FIX: Automatically scroll input into view on mobile focus
+    inputField.addEventListener('focus', () => {
+        setTimeout(() => {
+            inputField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    });
 
     function updateUI() {
         const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
@@ -358,14 +390,10 @@
     }
 
     function initRound(mode) {
-        state.currentMode = mode;
         const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
-        
-        if (mode === 'review') {
-            state.pool = mistakes.sort(() => 0.5 - Math.random()).slice(0, 10);
-        } else {
-            state.pool = [...masterData].sort(() => 0.5 - Math.random()).slice(0, 10);
-        }
+        state.pool = (mode === 'review') ? 
+            mistakes.sort(() => 0.5 - Math.random()).slice(0, 10) : 
+            [...masterData].sort(() => 0.5 - Math.random()).slice(0, 10);
 
         state.currentIndex = 0;
         state.correctCount = 0;
@@ -393,8 +421,9 @@
         document.getElementById('feedback-area').innerHTML = '';
         document.getElementById('hint-area').classList.add('hidden');
         document.getElementById('next-instruction').classList.add('hidden');
+        
         inputField.value = '';
-        inputField.disabled = false;
+        inputField.readOnly = false; // Keyboard stays active
         inputField.focus();
     }
 
@@ -425,7 +454,9 @@
                 document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
                 document.getElementById('hint-area').classList.remove('hidden');
                 document.getElementById('next-instruction').classList.remove('hidden');
-                inputField.disabled = true;
+                
+                // CRITICAL FIX: Set readOnly instead of disabled
+                inputField.readOnly = true; 
                 state.isWaitingForNext = true;
             } else {
                 inputField.select();
@@ -456,21 +487,18 @@
         showScreen('summary-screen');
         const score = Math.round((state.correctCount / state.pool.length) * 100);
         document.getElementById('final-score').innerText = `${score}%`;
-        
         const tbody = document.getElementById('summary-body');
         tbody.innerHTML = '';
         state.roundHistory.forEach(item => {
             const row = document.createElement('tr');
-            row.className = item.wrong ? 'row-wrong' : 'row-correct';
-            row.innerHTML = `
-                <td><b>${item.c}</b></td>
-                <td>${item.wrong ? '✘ Fail' : '✔ Pass'}</td>
-                <td>${item.p}</td>
-            `;
+            row.className = item.wrong ? 'row-wrong' : '';
+            row.innerHTML = `<td><b>${item.c}</b></td><td>${item.wrong ? '✘' : '✔'}</td><td>${item.p}</td>`;
             tbody.appendChild(row);
         });
         updateUI();
     }
 </script>
+</body>
+</html>
 </body>
 </html>
