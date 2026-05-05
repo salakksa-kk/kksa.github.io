@@ -1,5 +1,6 @@
 const CACHE_NAME = 'canto-v1';
 const ASSETS = [
+  './',
   'index.html',
   'manifest.json',
   'icon.png'
