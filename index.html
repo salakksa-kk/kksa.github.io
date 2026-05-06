@@ -20,10 +20,11 @@
             color: var(--text); 
             display: flex; 
             justify-content: center; 
-            align-items: center; 
+            align-items: flex-start; 
             min-height: 100vh; 
             margin: 0;
             overflow-x: hidden;
+            padding-top: 2rem;
         }
         #game-container { 
             background: white; 
@@ -51,6 +52,14 @@
             box-sizing: border-box; 
             text-align: center;
             -webkit-appearance: none; /* Fix for iOS styling */
+pointer-events: auto !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    cursor: text !important;
+    /* Ensure the keyboard knows it's for text */
+    inputmode: text;
+-webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
         }
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         /* Use Read-only styling instead of disabled */
@@ -365,7 +374,45 @@
     const inputField = document.getElementById('user-input');
     const gameContainer = document.getElementById('game-container');
 
+inputField.addEventListener('keydown', (e) => {
+    // If the user failed twice, block all keys except Enter
+    if (state.isWaitingForNext && e.key !== 'Enter') {
+        e.preventDefault();
+    }
+});
     window.onload = updateUI;
+
+// Force focus when the user touches the input area
+inputField.addEventListener('touchstart', function() {
+    if (!state.isWaitingForNext) {
+        inputField.focus();
+    }
+});
+
+// Update your nextQuestion function to be more aggressive
+function nextQuestion() {
+    if (state.currentIndex >= state.pool.length) {
+        showSummary();
+        return;
+    }
+    state.attempts = 0;
+    state.isWaitingForNext = false;
+    const current = state.pool[state.currentIndex];
+    
+    document.getElementById('target-phrase').innerText = current.c;
+    document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
+    document.getElementById('feedback-area').innerHTML = '';
+    document.getElementById('hint-area').classList.add('hidden');
+    document.getElementById('next-instruction').classList.add('hidden');
+    
+    inputField.value = '';
+    inputField.readOnly = false;
+    
+    // Attempt auto-focus, but the touchstart listener above 
+    // will act as the fail-safe on mobile.
+    inputField.focus();
+}
+
 
     // KEYBOARD FIX: Automatically scroll input into view on mobile focus
     inputField.addEventListener('focus', () => {
@@ -408,61 +455,37 @@
         document.getElementById(id).classList.remove('hidden');
     }
 
-    function nextQuestion() {
-        if (state.currentIndex >= state.pool.length) {
-            showSummary();
-            return;
-        }
-        state.attempts = 0;
-        state.isWaitingForNext = false;
-        const current = state.pool[state.currentIndex];
-        document.getElementById('target-phrase').innerText = current.c;
-        document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
-        document.getElementById('feedback-area').innerHTML = '';
-        document.getElementById('hint-area').classList.add('hidden');
-        document.getElementById('next-instruction').classList.add('hidden');
+   function checkAnswer() {
+    const current = state.pool[state.currentIndex];
+    const isMatch = normalize(inputField.value) === normalize(current.p);
+    const feedback = document.getElementById('feedback-area');
+
+    if (isMatch) {
+        feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+        state.correctCount++;
+        state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+        removeFromMistakes(current);
+        setTimeout(proceed, 800);
+    } else {
+        state.attempts++;
+        feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
         
-        inputField.value = '';
-        inputField.readOnly = false; // Keyboard stays active
-        inputField.focus();
-    }
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            if (state.isWaitingForNext) proceed();
-            else if (document.activeElement === inputField && inputField.value.trim() !== "") checkAnswer();
-        }
-    });
-
-    function checkAnswer() {
-        const current = state.pool[state.currentIndex];
-        const isMatch = normalize(inputField.value) === normalize(current.p);
-        const feedback = document.getElementById('feedback-area');
-
-        if (isMatch) {
-            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
-            state.correctCount++;
-            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
-            removeFromMistakes(current);
-            setTimeout(proceed, 800);
+        if (state.attempts >= 2) {
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+            saveToMistakes(current);
+            document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
+            document.getElementById('hint-area').classList.remove('hidden');
+            document.getElementById('next-instruction').classList.remove('hidden');
+            
+            // INSTEAD of readOnly, we just set a flag
+            state.isWaitingForNext = true; 
+            // We don't disable or set readOnly; we let the global 
+            // Enter key handler take over.
         } else {
-            state.attempts++;
-            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
-            if (state.attempts >= 2) {
-                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
-                saveToMistakes(current);
-                document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
-                document.getElementById('hint-area').classList.remove('hidden');
-                document.getElementById('next-instruction').classList.remove('hidden');
-                
-                // CRITICAL FIX: Set readOnly instead of disabled
-                inputField.readOnly = true; 
-                state.isWaitingForNext = true;
-            } else {
-                inputField.select();
-            }
+            inputField.select();
         }
     }
+}
 
     function saveToMistakes(phrase) {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
