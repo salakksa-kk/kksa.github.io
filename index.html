@@ -397,15 +397,31 @@
     });
 
     function updateUI() {
-        const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
+    try {
+        const rawData = localStorage.getItem('cantonese_mistakes');
+        const mistakes = JSON.parse(rawData || "[]");
         const btn = document.getElementById('review-btn');
-        if (mistakes.length > 0) {
-            btn.innerText = `Review Mistakes (${mistakes.length})`;
-            btn.classList.remove('hidden');
-        } else {
-            btn.classList.add('hidden');
+        
+        if (btn) {
+            if (mistakes.length > 0) {
+                // Update text first
+                btn.innerText = `Review Mistakes (${mistakes.length})`;
+                // Use a more direct style override to bypass CSS priority issues
+                btn.style.setProperty('display', 'inline-block', 'important');
+                btn.classList.remove('hidden');
+                console.log("UI Update: Showing button with " + mistakes.length + " mistakes");
+            } else {
+                btn.style.setProperty('display', 'none', 'important');
+                btn.classList.add('hidden');
+            }
         }
+    } catch (e) {
+        console.error("Storage Error:", e);
+        // Fallback: If JSON is corrupted, clear it to prevent the app from breaking
+        // localStorage.removeItem('cantonese_mistakes'); 
     }
+}
+
 
     function normalize(str) {
         return str.toLowerCase().replace(/[0-9\s]/g, '');
@@ -426,9 +442,19 @@
     }
 
     function showScreen(id) {
-        ['setup-screen', 'play-screen', 'summary-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
-        document.getElementById(id).classList.remove('hidden');
+    const screens = ['setup-screen', 'play-screen', 'summary-screen'];
+    screens.forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.classList.add('hidden');
+    });
+    
+    const target = document.getElementById(id);
+    if (target) {
+        target.classList.remove('hidden');
+        // CRITICAL: Every time we show a screen, re-check the UI
+        updateUI(); 
     }
+}
 
     function nextQuestion() {
         if (state.currentIndex >= state.pool.length) {
