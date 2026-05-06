@@ -14,23 +14,17 @@
     </script>
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; }
-        
-        body {
+        body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: var(--bg); 
             color: var(--text); 
             display: flex; 
             justify-content: center; 
-            /* Fix layout to the top of the page */
-            align-items: flex-start; 
+            align-items: center; 
             min-height: 100vh; 
             margin: 0;
-            /* Space from the very top of the screen */
-            padding-top: 2rem; 
             overflow-x: hidden;
-            box-sizing: border-box;
         }
-
         #game-container { 
             background: white; 
             padding: 2rem; 
@@ -39,54 +33,42 @@
             width: 90%;
             max-width: 500px; 
             text-align: center;
+            transition: transform 0.3s ease;
             margin: 10px;
         }
         
-        .hidden { display: none !important; }
+        .hidden { display: none; }
         .phrase-display { font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem; color: #0f172a; }
         
         input { 
             width: 100%; 
-            padding: 1.2rem; 
-            font-size: 1.3rem; 
+            padding: 1rem; 
+            font-size: 1.2rem; 
             border: 2px solid #e2e8f0; 
             border-radius: 0.75rem; 
             outline: none; 
             transition: all 0.2s; 
             box-sizing: border-box; 
             text-align: center;
-            inputmode: text;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
+            -webkit-appearance: none; /* Fix for iOS styling */
         }
-        
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        /* Use Read-only styling instead of disabled */
+        input[readonly] { background: #f8fafc; color: #64748b; border-color: #cbd5e1; cursor: default; }
         
-        button { 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            padding: 1rem 2rem; 
-            border-radius: 0.75rem; 
-            cursor: pointer; 
-            margin: 1rem 0; 
-            font-size: 1.1rem; 
-            font-weight: 600; 
-            width: 100%; 
-        }
-
-        button.secondary { background: #64748b; margin-top: 0.5rem; }
+        button { background: var(--primary); color: white; border: none; padding: 1rem 2rem; border-radius: 0.75rem; cursor: pointer; margin: 0.5rem; font-size: 1rem; font-weight: 600; min-width: 160px; }
+        button.secondary { background: #64748b; }
 
         .summary-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.85rem; }
         .summary-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; }
         .summary-table td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .row-wrong { background: #fef2f2; color: var(--error); }
         
-        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.3rem; font-weight: bold; }
+        .feedback { height: 2.5rem; margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
         .tick { color: var(--success); }
         .cross { color: var(--error); }
-        .instruction { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
-        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.85rem; }
+        .instruction { font-size: 0.8rem; color: #64748b; margin-top: 1rem; background: #f1f5f9; padding: 0.5rem; border-radius: 8px; display: inline-block; }
+        #progress { color: #94a3b8; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -94,15 +76,15 @@
 <div id="game-container">
     <div id="setup-screen">
         <h1>Cantonese Trainer</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Practice Jyutping anywhere.</p>
-        <button onclick="initRound('new')">Start New Round</button>
+        <p style="color: #64748b; margin-bottom: 2rem;">Master Jyutping through repetition.</p>
+        <button onclick="initRound('new')">New Round</button><br>
         <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
     </div>
 
     <div id="play-screen" class="hidden">
         <div id="progress">PHRASE 1 / 10</div>
         <div class="phrase-display" id="target-phrase">---</div>
-        <input type="text" id="user-input" placeholder="Type here..." autocomplete="off" spellcheck="false">
+        <input type="text" id="user-input" placeholder="Type Pinyin..." autocomplete="off" spellcheck="false">
         <div id="feedback-area" class="feedback"></div>
         <div id="hint-area" class="hidden"></div>
         <div id="next-instruction" class="instruction hidden">⏎ Press <b>Enter</b> to continue</div>
@@ -110,14 +92,14 @@
 
     <div id="summary-screen" class="hidden">
         <h2>Results</h2>
-        <div id="final-score" style="font-size: 3rem; font-weight: bold; color: var(--primary);">0%</div>
-        <div style="max-height: 300px; overflow-y: auto; margin: 1.5rem 0; border: 1px solid #e2e8f0; border-radius: 0.5rem;">
+        <div id="final-score" style="font-size: 2.5rem; font-weight: bold; color: var(--primary);">0%</div>
+        <div style="max-height: 250px; overflow-y: auto; margin: 1rem 0; border: 1px solid #e2e8f0;">
             <table class="summary-table">
                 <thead><tr><th>Phrase</th><th>Status</th><th>Pinyin</th></tr></thead>
                 <tbody id="summary-body"></tbody>
             </table>
         </div>
-        <button onclick="location.reload()">Back to Home</button>
+        <button onclick="location.reload()">Home</button>
     </div>
 </div>
 
@@ -371,7 +353,7 @@
         {"c": "膝頭", "p": "sat1 tau4"}, {"c": "腳板", "p": "goek3 baan2"}
     ];
 
-  let state = {
+ let state = {
         pool: [],
         roundHistory: [],
         currentIndex: 0,
@@ -381,47 +363,27 @@
     };
 
     const inputField = document.getElementById('user-input');
+    const gameContainer = document.getElementById('game-container');
 
-    // Force focus when the user touches the input area
-    inputField.addEventListener('touchstart', function() {
-        if (!state.isWaitingForNext) {
-            inputField.focus();
-        }
-    });
+    window.onload = updateUI;
 
-    // Option 3: Block typing after failure but keep keyboard up
-    inputField.addEventListener('keydown', (e) => {
-        if (state.isWaitingForNext && e.key !== 'Enter') {
-            e.preventDefault();
-        }
+    // KEYBOARD FIX: Automatically scroll input into view on mobile focus
+    inputField.addEventListener('focus', () => {
+        setTimeout(() => {
+            inputField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
     });
 
     function updateUI() {
-    try {
-        const rawData = localStorage.getItem('cantonese_mistakes');
-        const mistakes = JSON.parse(rawData || "[]");
+        const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
         const btn = document.getElementById('review-btn');
-        
-        if (btn) {
-            if (mistakes.length > 0) {
-                // Update text first
-                btn.innerText = `Review Mistakes (${mistakes.length})`;
-                // Use a more direct style override to bypass CSS priority issues
-                btn.style.setProperty('display', 'inline-block', 'important');
-                btn.classList.remove('hidden');
-                console.log("UI Update: Showing button with " + mistakes.length + " mistakes");
-            } else {
-                btn.style.setProperty('display', 'none', 'important');
-                btn.classList.add('hidden');
-            }
+        if (mistakes.length > 0) {
+            btn.innerText = `Review Mistakes (${mistakes.length})`;
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
         }
-    } catch (e) {
-        console.error("Storage Error:", e);
-        // Fallback: If JSON is corrupted, clear it to prevent the app from breaking
-        // localStorage.removeItem('cantonese_mistakes'); 
     }
-}
-
 
     function normalize(str) {
         return str.toLowerCase().replace(/[0-9\s]/g, '');
@@ -442,19 +404,9 @@
     }
 
     function showScreen(id) {
-    const screens = ['setup-screen', 'play-screen', 'summary-screen'];
-    screens.forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.classList.add('hidden');
-    });
-    
-    const target = document.getElementById(id);
-    if (target) {
-        target.classList.remove('hidden');
-        // CRITICAL: Every time we show a screen, re-check the UI
-        updateUI(); 
+        ['setup-screen', 'play-screen', 'summary-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
     }
-}
 
     function nextQuestion() {
         if (state.currentIndex >= state.pool.length) {
@@ -464,7 +416,6 @@
         state.attempts = 0;
         state.isWaitingForNext = false;
         const current = state.pool[state.currentIndex];
-        
         document.getElementById('target-phrase').innerText = current.c;
         document.getElementById('progress').innerText = `PHRASE ${state.currentIndex + 1} / ${state.pool.length}`;
         document.getElementById('feedback-area').innerHTML = '';
@@ -472,6 +423,7 @@
         document.getElementById('next-instruction').classList.add('hidden');
         
         inputField.value = '';
+        inputField.readOnly = false; // Keyboard stays active
         inputField.focus();
     }
 
@@ -482,41 +434,35 @@
         }
     });
 
-function checkAnswer() {
-    const current = state.pool[state.currentIndex];
-    const isMatch = normalize(inputField.value) === normalize(current.p);
-    const feedback = document.getElementById('feedback-area');
+    function checkAnswer() {
+        const current = state.pool[state.currentIndex];
+        const isMatch = normalize(inputField.value) === normalize(current.p);
+        const feedback = document.getElementById('feedback-area');
 
-    if (isMatch) {
-        feedback.innerHTML = '<span class="tick">✔ Correct</span>';
-        
-        // --- ADD AUDIO HERE ---
-        speak(current.c); 
-        
-        state.correctCount++;
-        state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
-        removeFromMistakes(current);
-        setTimeout(proceed, 800);
-    } else {
-        state.attempts++;
-        feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
-        if (state.attempts >= 2) {
-            state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
-            saveToMistakes(current);
-            
-            // --- ADD AUDIO HERE ---
-            speak(current.c); 
-
-            const hint = document.getElementById('hint-area');
-            hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
-            hint.classList.remove('hidden');
-            document.getElementById('next-instruction').classList.remove('hidden');
-            state.isWaitingForNext = true;
+        if (isMatch) {
+            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+            state.correctCount++;
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+            removeFromMistakes(current);
+            setTimeout(proceed, 800);
         } else {
-            inputField.select();
+            state.attempts++;
+            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
+            if (state.attempts >= 2) {
+                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+                saveToMistakes(current);
+                document.getElementById('hint-area').innerHTML = `<div style="color:var(--error); margin-top:10px">Correct: <b>${current.p}</b></div>`;
+                document.getElementById('hint-area').classList.remove('hidden');
+                document.getElementById('next-instruction').classList.remove('hidden');
+                
+                // CRITICAL FIX: Set readOnly instead of disabled
+                inputField.readOnly = true; 
+                state.isWaitingForNext = true;
+            } else {
+                inputField.select();
+            }
         }
     }
-}
 
     function saveToMistakes(phrase) {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
@@ -551,21 +497,6 @@ function checkAnswer() {
         });
         updateUI();
     }
-
-    function speak(text) {
-    // Create a new speech request
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Set the language to Cantonese (Hong Kong)
-    utterance.lang = 'zh-HK';
-    
-    // Adjust pitch and rate to your preference
-    utterance.pitch = 1.0;
-    utterance.rate = 0.9; // Slightly slower for clearer learning
-    
-    // Execute the speech
-    window.speechSynthesis.speak(utterance);
-}
 </script>
 </body>
 </html>
