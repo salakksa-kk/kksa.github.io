@@ -1,4 +1,4 @@
-const CACHE_NAME = 'canto-test-v1';
+const CACHE_NAME = 'canto-test-v2';
 const ASSETS = [
   './',
   'index.html',
