@@ -15,17 +15,16 @@
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --error: #ef4444; --bg: #f8fafc; --text: #1e293b; }
         
-        body {
+        body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: var(--bg); 
             color: var(--text); 
             display: flex; 
             justify-content: center; 
-            /* Fix layout to the top of the page */
+            /* Layout fixed to the top for tablet keyboard space */
             align-items: flex-start; 
             min-height: 100vh; 
             margin: 0;
-            /* Space from the very top of the screen */
             padding-top: 2rem; 
             overflow-x: hidden;
             box-sizing: border-box;
@@ -94,7 +93,7 @@
 <div id="game-container">
     <div id="setup-screen">
         <h1>Cantonese Trainer</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Practice Jyutping anywhere.</p>
+        <p style="color: #64748b; margin-bottom: 2rem;">Practice Jyutping with Audio.</p>
         <button onclick="initRound('new')">Start New Round</button>
         <button id="review-btn" class="secondary hidden" onclick="initRound('review')">Review Mistakes (0)</button>
     </div>
@@ -371,7 +370,7 @@
         {"c": "膝頭", "p": "sat1 tau4"}, {"c": "腳板", "p": "goek3 baan2"}
     ];
 
-  let state = {
+ let state = {
         pool: [],
         roundHistory: [],
         currentIndex: 0,
@@ -382,46 +381,52 @@
 
     const inputField = document.getElementById('user-input');
 
-    // Force focus when the user touches the input area
+    // Force focus on touch (important for tablets)
     inputField.addEventListener('touchstart', function() {
         if (!state.isWaitingForNext) {
             inputField.focus();
         }
     });
 
-    // Option 3: Block typing after failure but keep keyboard up
+    // Option 3: Lock input keys but keep keyboard active
     inputField.addEventListener('keydown', (e) => {
         if (state.isWaitingForNext && e.key !== 'Enter') {
             e.preventDefault();
         }
     });
 
+    // --- RESTORED: ENTER KEY LISTENER ---
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            if (state.isWaitingForNext) {
+                proceed();
+            } else if (document.activeElement === inputField && inputField.value.trim() !== "") {
+                checkAnswer();
+            }
+        }
+    });
+
+    // --- RESTORED: AUDIO FUNCTION ---
+    function speak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-HK';
+        utterance.pitch = 1.0;
+        utterance.rate = 0.85;
+        window.speechSynthesis.speak(utterance);
+    }
+
     function updateUI() {
-    try {
-        const rawData = localStorage.getItem('cantonese_mistakes');
-        const mistakes = JSON.parse(rawData || "[]");
+        const mistakes = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
         const btn = document.getElementById('review-btn');
-        
         if (btn) {
             if (mistakes.length > 0) {
-                // Update text first
                 btn.innerText = `Review Mistakes (${mistakes.length})`;
-                // Use a more direct style override to bypass CSS priority issues
-                btn.style.setProperty('display', 'inline-block', 'important');
                 btn.classList.remove('hidden');
-                console.log("UI Update: Showing button with " + mistakes.length + " mistakes");
             } else {
-                btn.style.setProperty('display', 'none', 'important');
                 btn.classList.add('hidden');
             }
         }
-    } catch (e) {
-        console.error("Storage Error:", e);
-        // Fallback: If JSON is corrupted, clear it to prevent the app from breaking
-        // localStorage.removeItem('cantonese_mistakes'); 
     }
-}
-
 
     function normalize(str) {
         return str.toLowerCase().replace(/[0-9\s]/g, '');
@@ -442,19 +447,16 @@
     }
 
     function showScreen(id) {
-    const screens = ['setup-screen', 'play-screen', 'summary-screen'];
-    screens.forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.classList.add('hidden');
-    });
-    
-    const target = document.getElementById(id);
-    if (target) {
-        target.classList.remove('hidden');
-        // CRITICAL: Every time we show a screen, re-check the UI
-        updateUI(); 
+        ['setup-screen', 'play-screen', 'summary-screen'].forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.classList.add('hidden');
+        });
+        const target = document.getElementById(id);
+        if (target) {
+            target.classList.remove('hidden');
+            updateUI(); 
+        }
     }
-}
 
     function nextQuestion() {
         if (state.currentIndex >= state.pool.length) {
@@ -475,54 +477,42 @@
         inputField.focus();
     }
 
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            if (state.isWaitingForNext) proceed();
-            else if (document.activeElement === inputField && inputField.value.trim() !== "") checkAnswer();
-        }
-    });
+    function checkAnswer() {
+        const current = state.pool[state.currentIndex];
+        const isMatch = normalize(inputField.value) === normalize(current.p);
+        const feedback = document.getElementById('feedback-area');
 
-function checkAnswer() {
-    const current = state.pool[state.currentIndex];
-    const isMatch = normalize(inputField.value) === normalize(current.p);
-    const feedback = document.getElementById('feedback-area');
-
-    if (isMatch) {
-        feedback.innerHTML = '<span class="tick">✔ Correct</span>';
-        
-        // --- ADD AUDIO HERE ---
-        speak(current.c); 
-        
-        state.correctCount++;
-        state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
-        removeFromMistakes(current);
-        setTimeout(proceed, 800);
-    } else {
-        state.attempts++;
-        feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
-        if (state.attempts >= 2) {
-            state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
-            saveToMistakes(current);
-            
-            // --- ADD AUDIO HERE ---
-            speak(current.c); 
-
-            const hint = document.getElementById('hint-area');
-            hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
-            hint.classList.remove('hidden');
-            document.getElementById('next-instruction').classList.remove('hidden');
-            state.isWaitingForNext = true;
+        if (isMatch) {
+            feedback.innerHTML = '<span class="tick">✔ Correct</span>';
+            speak(current.c); // Audio trigger
+            state.correctCount++;
+            state.roundHistory.push({ c: current.c, p: current.p, wrong: false });
+            removeFromMistakes(current);
+            setTimeout(proceed, 800);
         } else {
-            inputField.select();
+            state.attempts++;
+            feedback.innerHTML = '<span class="cross">✘ Incorrect</span>';
+            if (state.attempts >= 2) {
+                state.roundHistory.push({ c: current.c, p: current.p, wrong: true });
+                saveToMistakes(current);
+                speak(current.c); // Audio trigger
+                const hint = document.getElementById('hint-area');
+                hint.innerHTML = `<div style="color:var(--error); margin-top:10px">Correct Pinyin: <b>${current.p}</b></div>`;
+                hint.classList.remove('hidden');
+                document.getElementById('next-instruction').classList.remove('hidden');
+                state.isWaitingForNext = true;
+            } else {
+                inputField.select();
+            }
         }
     }
-}
 
     function saveToMistakes(phrase) {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
         if (!saved.some(item => item.c === phrase.c)) {
             saved.push(phrase);
             localStorage.setItem('cantonese_mistakes', JSON.stringify(saved));
+            updateUI();
         }
     }
 
@@ -530,6 +520,7 @@ function checkAnswer() {
         let saved = JSON.parse(localStorage.getItem('cantonese_mistakes') || "[]");
         saved = saved.filter(item => item.c !== phrase.c);
         localStorage.setItem('cantonese_mistakes', JSON.stringify(saved));
+        updateUI();
     }
 
     function proceed() {
@@ -552,20 +543,7 @@ function checkAnswer() {
         updateUI();
     }
 
-    function speak(text) {
-    // Create a new speech request
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Set the language to Cantonese (Hong Kong)
-    utterance.lang = 'zh-HK';
-    
-    // Adjust pitch and rate to your preference
-    utterance.pitch = 1.0;
-    utterance.rate = 0.9; // Slightly slower for clearer learning
-    
-    // Execute the speech
-    window.speechSynthesis.speak(utterance);
-}
+    window.onload = updateUI;
 </script>
 </body>
 </html>
